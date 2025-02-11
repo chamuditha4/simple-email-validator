@@ -1,12 +1,10 @@
 const express = require('express');
 const dns = require('dns').promises;
-const net = require('net');
-
 const app = express();
 app.use(express.json());
 
-async function quickValidateEmail(email) {
-    // Basic format check first (fastest)
+async function validateEmail(email) {
+    // Basic format check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
         return { valid: false, reason: 'Invalid format' };
@@ -15,55 +13,20 @@ async function quickValidateEmail(email) {
     const [, domain] = email.split('@');
 
     try {
-        // Quick MX check with short timeout
-        const mxRecords = await dns.resolveMx(domain).catch(() => []);
-        if (!mxRecords.length) {
-            return { valid: false, reason: 'No MX records' };
-        }
-
-        // Quick SMTP check with 3 second timeout
-        const isValid = await checkSMTP(mxRecords[0].exchange, email);
+        // Check MX records
+        const mxRecords = await dns.resolveMx(domain);
+        
+        // Check A records as backup
+        const aRecords = await dns.resolve(domain).catch(() => []);
+        
         return {
-            valid: isValid,
-            reason: isValid ? 'Valid' : 'SMTP check failed'
+            valid: mxRecords.length > 0 || aRecords.length > 0,
+            reason: mxRecords.length > 0 ? 'Has MX records' : 
+                    aRecords.length > 0 ? 'Has A records' : 'No valid records'
         };
-
     } catch (error) {
         return { valid: false, reason: error.message };
     }
-}
-
-function checkSMTP(host, email) {
-    return new Promise((resolve) => {
-        const socket = new net.Socket();
-        let resolved = false;
-
-        // Shorter timeout - 3 seconds
-        socket.setTimeout(3000);
-
-        socket.on('timeout', () => {
-            if (!resolved) {
-                resolved = true;
-                socket.destroy();
-                resolve(false);
-            }
-        });
-
-        socket.on('error', () => {
-            if (!resolved) {
-                resolved = true;
-                resolve(false);
-            }
-        });
-
-        socket.connect(25, host, () => {
-            // As soon as we connect, we consider it valid
-            // This is less thorough but much faster
-            resolved = true;
-            socket.destroy();
-            resolve(true);
-        });
-    });
 }
 
 app.post('/validate-email', async (req, res) => {
@@ -72,7 +35,7 @@ app.post('/validate-email', async (req, res) => {
         return res.status(400).json({ valid: false, reason: 'Email required' });
     }
 
-    const result = await quickValidateEmail(email);
+    const result = await validateEmail(email);
     res.json({ email, ...result });
 });
 
