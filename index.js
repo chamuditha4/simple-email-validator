@@ -42,4 +42,4 @@ app.post('/validate-email', async (req, res) => {
     res.json({ email, ...result });
 });
 
-app.listen(3001, () => console.log('Server running on port 3000'));
+app.listen(3001, () => console.log('Server running on port 3001'));
