@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dns = require('dns').promises;
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
 async function validateEmail(email) {
     // Basic format check
