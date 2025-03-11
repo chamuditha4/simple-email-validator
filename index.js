@@ -1,6 +1,8 @@
 const express = require('express');
+const cors = require('cors');
 const dns = require('dns').promises;
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 async function validateEmail(email) {
@@ -36,7 +38,8 @@ app.post('/validate-email', async (req, res) => {
     }
 
     const result = await validateEmail(email);
+    console.log({ email, ...result });
     res.json({ email, ...result });
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+app.listen(3001, () => console.log('Server running on port 3000'));
